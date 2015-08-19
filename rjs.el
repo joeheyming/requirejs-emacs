@@ -3,6 +3,7 @@
 ;; Author: Joe Heyming <joeheyming@gmail.com>
 ;; Version: 1.0
 ;; Keywords: javascript, requirejs
+;; Package-Requires: ((js2-mode "20141118")(expand-region "0.10.0"))
 
 ;;; Commentary:
 ;; This module allows you to:
@@ -121,7 +122,22 @@ the function."
        t))
     nil))
 
-(defun ac-js2-name-declaration (name)
+(defun js2-get-function-call-node (name scope)
+  "Return node of function named NAME in SCOPE."
+  (catch 'function-found
+    (js2-visit-ast
+     scope
+     (lambda (node end-p)
+       (when (and (not end-p)
+                  (= (js2-node-type node) js2-NAME)
+                  (string= name (js2-name-node-name node))
+                  (= (js2-node-type (js2-node-parent node)) js2-CALL)
+                  )
+         (throw 'function-found node))
+       t))
+    nil))
+
+(defun js2-name-declaration (name)
   "Return the declaration node for node named NAME."
   (let* ((node (js2-root-or-node))
          (scope-def (js2-get-defining-scope node name))
@@ -134,45 +150,35 @@ the function."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defvar rjs-define-or-require "define")
+
 (defun rjs-goto-define()
   "Jump to the define at the beginning of the buffer"
-  (beginning-of-buffer)
-  (search-forward-regexp "define\(\\["))
+  (interactive)
+  (let* ( (define-node (js2-get-function-call-node rjs-define-or-require (js2-node-root (js2-node-at-point)) ))
+          (define-call (js2-node-parent define-node)) )
+    (goto-char (+ (js2-node-abs-pos define-call) (js2-call-node-lp define-call) ))
+    (search-forward "[")
+    (backward-char 1)))
 
 (defun rjs-get-require-paths()
   (interactive)
   (save-excursion
     (rjs-goto-define)
     (let ((node (js2-goto-first-child-node))
-          (require-paths '()))    
+          (require-paths '()))
       (while (not (null node))
         (push (js2-node-quoted-contents node) require-paths)
         (setq node (js2-node-next-sibling node)))
       require-paths
       )))
 
-(defun rjs-get-require-params()
-  (interactive)
-  (save-excursion
-    (rjs-goto-define)
-    (js2-goto-next-node)
-    (let ((node (js2-goto-first-child-node))
-          (require-params '()))    
-      (while (not (null node))
-        (push (buffer-substring-no-properties (js2-node-abs-pos node) (js2-node-abs-end node)) require-params)
-        (setq node (js2-node-next-sibling node)))
-      require-params)))
-
-(defun js2-clear-list()
+(defun rjs-clear-list()
   "Look at your parent node and clear out all child nodes"
   (interactive)
-  (let*  ( (current (js2-node-at-point))
-           (parent (js2-node-parent current))
-           (kids (js2-node-child-list parent))
-           (nodestart (js2-node-abs-pos (car kids)))
-           (last-child (car (last kids)))
-           (end (+ (js2-node-abs-pos last-child) (js2-node-len last-child))) )
-    (kill-region nodestart end)))
+  (er/mark-outside-pairs)
+  (kill-region (+ 1(region-beginning)) (- (region-end) 1) )
+  (forward-char 1))
 
 ;; Define a structure for storing an alias
 (defstruct rjs-alias
@@ -223,13 +229,17 @@ the function."
         (rjs-alias-variableName shim)
       basename) ))
 
-(defun rjs-sort-require-paths()
+(defun rjs-sort-require-paths(&optional other)
   "Sorts the paths inside define, then injects variable names into the corresponding function declaration."
   (interactive)
-  (let ((require-paths (rjs-get-require-paths))
-        (standard-paths '())
-        (tail-paths '())
-        (final-list '()))
+  (let ( (require-paths (rjs-get-require-paths))
+         (standard-paths '())
+         (tail-paths '())
+         (final-list '()) )
+
+    (if other
+        (push other require-paths))
+    (setq require-paths (remove-duplicates require-paths :test #'equal))
     
     ;; Create two lists, standard-paths go at the beginning
     ;;  tail-paths go at the end
@@ -245,38 +255,30 @@ the function."
                   (sort tail-paths 'rjs-alias-compare)))
     (save-excursion
       (rjs-goto-define)
+      (js2-goto-next-node)
+      (js2-goto-nth-child 1)
+      (js2-goto-first-child-node)
 
-      (let* ((node (js2-node-at-point))
-             (child (js2-node-first-child node)))
-        (if child
-            (progn 
-              (goto-char (js2-node-abs-pos child))
-              (js2-clear-list))
-          ))
+      (rjs-clear-list)
 
-      ;; inject the newline separated variables
-      (insert (mapconcat 'identity (maplist #'(lambda(a) (concat "'" (car a) "'")) final-list) ",\n"))
-
-      ;; indent the injected requirejs variables
-      (let* ((node (js2-node-parent (js2-node-at-point)))
-             (nodelen (js2-node-len node))
-             (nodestart (js2-node-abs-pos node)))
-        (indent-region nodestart (+ nodelen nodestart)))
+      ;; ;; finally inject the function variable params
+      (insert (mapconcat 'identity (maplist #'rjs-get-variable-name  final-list) ", "))
 
       (rjs-goto-define)
-      (js2-goto-nth-child 1)
+      (js2-goto-first-child-node)
+      (let ((end))
+        (rjs-clear-list)
+        (insert "\n\n")
+        (backward-char 1)
 
-      (let* ((node (js2-node-at-point))
-             (child (js2-node-first-child node)))
-        (if child
-            (progn 
-              (goto-char (js2-node-abs-pos child))
-              (js2-clear-list))
-          ;; search for the function parameters open paren
-          (search-forward "(")))
+        ;; inject the newline separated variables
+        (insert (mapconcat 'identity (maplist #'(lambda(a) (concat "'" (car a) "'")) final-list) ",\n"))
 
-      ;; finally inject the function variable params
-      (insert (mapconcat 'identity (maplist #'rjs-get-variable-name  final-list) ", "))
+        ;; indent
+        (setq end  (+ 1 (point)))
+        (rjs-goto-define)
+        (js2-indent-region (point) end)
+        )      
       )
     ))
 
@@ -284,22 +286,21 @@ the function."
   "Returns true if the node is a CALL node and it equals 'define'"
   (and
    (= (js2-node-type node) js2-CALL)
-   (equal "define" (buffer-substring (js2-node-abs-pos define) (+ 6 (js2-node-abs-pos define)) )) ))
+   (equal rjs-define-or-require (buffer-substring (js2-node-abs-pos define) (+ 6 (js2-node-abs-pos define)) )) ))
 
 (defun rjs-jump-to()
   "Go to the declaration of the node under the cursor"
   (interactive)
   (let* ( (node (js2-node-at-point))
           (name (js2-name-node-name node))
-          (declaration (ac-js2-name-declaration name))
+          (declaration (js2-name-declaration name))
           (define) )
     (if declaration
         (progn
           (setq define (js2-node-parent (js2-node-parent node)))
           (if (rjs-is-define-call define)
-              (message "in define")
-            ;; navigate to corresponding path
-            (rjs-jump-to-module))
+              ;; navigate to corresponding path
+              (rjs-jump-to-module))
           
           ;; jump to the declaration
           (goto-char (js2-node-abs-pos declaration)) )) ))
@@ -327,20 +328,10 @@ the function."
   (let* ( (node (js2-node-at-point))
           (name (buffer-substring (js2-node-abs-pos node) (js2-node-abs-end node)))
           (command (format "cd %s && find . -name \"%s.js\" | sed 's/\.[^\.]*$//'" rjs-require-base name))
-          (result) )
+          (require-paths (rjs-get-require-paths))
+          (result)
+          )
     (setq result (car (cdr (split-string (first (split-string (shell-command-to-string command) "\n")) "^\./"))) )
     (if result
-        (save-excursion
-          (setq result (funcall rjs-path-formatter result))
-
-          (rjs-goto-define)
-          (setq node (js2-goto-first-child-node))
-          ;; insert the function declaration
-          (if node
-              (insert (format "'%s',\n" result))
-            (progn
-              (insert (format "'%s'\n" result)) ))
-          (indent-according-to-mode)
-          ;; this organizes the require paths, and inserts the new variable to the function declaration
-          (js2-mode-wait-for-parse 'rjs-sort-require-paths)
-          ) )))
+        (progn
+          (rjs-sort-require-paths (funcall rjs-path-formatter result)) ))))
