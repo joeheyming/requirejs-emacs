@@ -28,7 +28,6 @@
 ;;              ))
 
 (provide 'rjs)
-(require 'cl)
 (require 'popup)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -236,10 +235,9 @@ If `rjs-var-formatter' returns a string, then we will use that string for the va
 (defvar rjs-text-suffix "TextStr" "Default behavior of text! paths is to take the basename of the path file
 and tack on `rjs-text-suffix'.  Override this if TextStr doesn't work for you.")
 
-(defun rjs-get-variable-name(item)
+(defun rjs-get-variable-name(path)
   (interactive)
-  (let* ((path (car item))
-         (basename (car (last (split-string path "/" )) ))
+  (let* ((basename (car (last (split-string path "/" )) ))
          (shim (gethash path rjs-aliases))
          (formatted (funcall rjs-var-formatter path basename))
          )
@@ -272,7 +270,7 @@ In this case, you would (setq rjs-tail-path 'your-team-requirements)
 
     (if other
         (push other require-paths))
-    (setq require-paths (remove-duplicates require-paths :test #'equal))
+    (setq require-paths (delete-dups require-paths))
     
     ;; Create two lists, standard-paths go at the beginning
     ;;  tail-paths go at the end
@@ -295,7 +293,7 @@ In this case, you would (setq rjs-tail-path 'your-team-requirements)
       (rjs-clear-list)
 
       ;; inject the function variable params
-      (insert (mapconcat 'identity (maplist #'rjs-get-variable-name  final-list) ", "))
+      (insert (mapconcat 'identity (mapcar 'rjs-get-variable-name  final-list) ", "))
 
       (rjs-goto-define)
       (js2-goto-first-child-node)
@@ -305,7 +303,7 @@ In this case, you would (setq rjs-tail-path 'your-team-requirements)
         (backward-char 1)
 
         ;; inject the newline separated variables
-        (insert (mapconcat 'identity (maplist #'(lambda(a) (concat "'" (car a) "'")) final-list) ",\n"))
+        (insert (mapconcat 'identity (mapcar #'(lambda(a) (concat "'" a "'")) final-list) ",\n"))
 
         ;; indent the define block
         (setq end  (+ 1 (point)))
@@ -322,7 +320,7 @@ In this case, you would (setq rjs-tail-path 'your-team-requirements)
   "Returns true if the node is a CALL node and it equals 'define'"
   (and
    (= (js2-node-type node) js2-CALL)
-   (equal rjs-define-or-require (buffer-substring (js2-node-abs-pos define) (+ 6 (js2-node-abs-pos define)) )) ))
+   (equal rjs-define-or-require (buffer-substring (js2-node-abs-pos node) (+ 6 (js2-node-abs-pos node)) )) ))
 
 (defun rjs-jump-to()
   "Goes to the variable declaration of the node under the cursor.  If you are inside a define block's function parameters, `rjs-jump-to' attempts to call `rjs-jump-to-module' to go to the corresponding file."
@@ -470,7 +468,7 @@ If more than one file matches your variable name, rjs provides a menu to prompt 
         (setq next-column-spot (current-column)) ;;(+ (current-column) (js2-node-len node)))
         (if (> next-column-spot 80)
             (progn
-              (backward-delete-char 1) ;; remove the added space
+              (delete-char -1) ;; remove the added space
               (insert "\n")
               (js2-indent-line)))
         (goto-char (+ (+(point) (js2-node-len node)) 1))
@@ -479,7 +477,7 @@ If more than one file matches your variable name, rjs provides a menu to prompt 
         (insert " ")
         (setq n (+ n 1))
         (setq node (nth n nodes)) )
-      (delete-backward-char 1)
+      (delete-char -1)
       (if line-break
           (progn
             (backward-char 1)
