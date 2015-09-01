@@ -3,7 +3,7 @@
 ;; Author: Joe Heyming <joeheyming@gmail.com>
 ;; Version: 1.1
 ;; Keywords: javascript, requirejs
-;; Package-Requires: ((js2-mode "20150713")(expand-region "0.10.0")(popup "0.5.3"))
+;; Package-Requires: ((js2-mode "20150713")(expand-region "0.10.0")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
 
 ;;; Commentary:
 ;; This module allows you to:
@@ -29,7 +29,11 @@
 
 ;;; Code:
 
+(require 'js2-mode)
 (require 'popup)
+(require 'expand-region)
+(require 'cl-lib)
+(require 's)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; js2-mode utilities
@@ -183,7 +187,7 @@ the function."
   (forward-char 1))
 
 ;; Define a structure for storing an alias
-(defstruct requirejs-alias
+(cl-defstruct requirejs-alias
   "A rule for a special shim in your requirejs conf"
   label ;; The lookup value of an alias
   variableName ;; The desired variable name to place in a define function.
@@ -402,7 +406,7 @@ returns a non-nil value.")
     ;; (message (format "command = %s" command))
     ;; (message (format "files = %s %s" files (length files)))
     (cond ((equal (car files) "") (error (format "Can't find module: %s" variableName)))
-          ((= (length files) 1) (s-trim (first files)))
+          ((= (length files) 1) (s-trim (cl-first files)))
           ((> (length files) 1) (popup-menu* files :keymap requirejs-popup-keymap))
           )))
 
