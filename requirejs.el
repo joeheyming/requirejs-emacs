@@ -396,7 +396,7 @@ returns a non-nil value.")
 (defun requirejs-find-filepath (variableName)
   "Invokes a find command under `requirejs-require-base' and look for VARIABLENAME."
   (message (format "Finding variableName: '%s' ..." variableName))
-  (requirejs-valid-project)
+  (requirejs-validate-project)
   (let* ((command (format "cd %s; find . -name \"%s.js\"" requirejs-require-base variableName))
         (files (split-string (s-trim (shell-command-to-string command)) "\n")))
     ;; (message (format "command = %s" command))
