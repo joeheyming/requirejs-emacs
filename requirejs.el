@@ -13,7 +13,7 @@
 ;;   - which uses the above sorting functionality when any arbitrary line is added to the path array.
 ;;  - Allows you to jump to a module under your cursor as long as it exists in the same requirejs project.
 
-;; installation: put this file under an Emacs Lisp directory, then include this file (require 'rjs)
+;; installation: put this file under an Emacs Lisp directory, then include this file (require 'requirejs)
 ;;  Usage:
 ;; Here is a sample configuration that may be helpful to get going.
 ;; 
