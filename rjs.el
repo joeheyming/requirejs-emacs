@@ -367,7 +367,7 @@ In this case, you would (setq rjs-tail-path 'your-team-requirements)
 (defun rjs-find-filepath (variableName)
   "Invokes a find command under `rjs-require-base' and looks for variableName"
   (message (format "Finding variableName: '%s' ..." variableName))
-  (rjs-valid-project)
+  (rjs-validate-project)
   (let* ((command (format "cd %s; find . -name \"%s.js\"" rjs-require-base variableName))
         (files (split-string (s-trim (shell-command-to-string command)) "\n")))
     ;; (message (format "command = %s" command))
