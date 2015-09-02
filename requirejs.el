@@ -333,8 +333,8 @@ returns a non-nil value.")
 
       ;; eightify the list manually since the syntax tree spacing may be borked at this point.
       (requirejs-js2-goto-next-node)
-      (setq node (requirejs-js2-goto-first-child-node))
-      (let ((next-column-spot))
+      (let ((node (requirejs-js2-goto-first-child-node))
+            (next-column-spot))
         (while node
           (setq next-column-spot (+ (current-column) (js2-node-len node)))
           (if (> next-column-spot 80)
