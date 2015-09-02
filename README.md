@@ -1,4 +1,4 @@
-# requirejs-emacs [![melpa badge][melpa-badge]][melpa-link]
+# requirejs.el [![MELPA](https://melpa.org/packages/requirejs-badge.svg)](https://melpa.org/#/requirejs)
 
 Uses js2-mode to make Emacs interact with your RequireJS project
 
