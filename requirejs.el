@@ -4,7 +4,7 @@
 ;; URL: https://github.com/syohex/requirejs-emacs
 ;; Version: 1.1
 ;; Keywords: javascript, requirejs
-;; Package-Requires: ((js2-mode "20150713")(expand-region "0.10.0")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
+;; Package-Requires: ((js2-mode "20150713")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -45,7 +45,6 @@
 
 (require 'js2-mode)
 (require 'popup)
-(require 'expand-region)
 (require 'cl-lib)
 (require 's)
 
@@ -196,7 +195,8 @@ the function."
 (defun requirejs-clear-list()
   "Look at your parent node and clear out all child nodes"
   (interactive)
-  (er/mark-outside-pairs)
+  (backward-up-list)
+  (mark-sexp)
   (kill-region (+ 1(region-beginning)) (- (region-end) 1) )
   (forward-char 1))
 
