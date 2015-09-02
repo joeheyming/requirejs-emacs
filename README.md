@@ -1,21 +1,23 @@
-# requirejs
+# requirejs [![melpa badge][melpa-badge]][melpa-link] [![melpa stable badge][melpa-stable-badge]][melpa-stable-link]
 Uses js2-mode to make Emacs interact with your RequireJS project
 
-Features:
+## Features:
 * Allows you to effortlessly manage a define or require block
  * Sorts/organizes paths and parameters for you
  * Allows for hooks to define rules for special files
 * Provides a way to automatically add a path to your define block
 * You can navigate to a file matching the variable under your cursor
 
-# Installation
-Put requirejs.el inside a lisp path.
-Then put this inside your .emacs file
-```lisp
-(require requirejs.el)
-```
 
-# Customization 
+## Installation
+
+`requirejs-emacs` is available on [MELPA](https://melpa.org) and [MELPA-STABLE](https://stable.melpa.org).
+
+You can install `requirejs` with the following command.
+
+<kbd>M-x package-install [RET] requirejs [RET]</kbd>
+
+## Customization 
 * To help requirejs find files under your project, you need to set requirejs-require-base.
  This is used to locate files under that path.
  * Sometimes multiple paths are included: project/src/test/js, project/src/main/js
@@ -40,7 +42,7 @@ The first argument to requirejs-add-alias is the path you want inside your defin
 second argument is the parameter to put in the function declaration,
 the third argument is the path to the actual file (under requirejs-require-base)
 
-# Key mappings
+## Key mappings
 I like to define these local keys when in js2-mode:
 ```lisp
  (add-hook 'js2-mode-hook

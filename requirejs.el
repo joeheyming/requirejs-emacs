@@ -1,6 +1,7 @@
 ;;; requirejs.el --- Requirejs import manipulation and source traversal.
 
 ;; Author: Joe Heyming <joeheyming@gmail.com>
+;; URL: https://github.com/syohex/requirejs-emacs
 ;; Version: 1.1
 ;; Keywords: javascript, requirejs
 ;; Package-Requires: ((js2-mode "20150713")(expand-region "0.10.0")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
