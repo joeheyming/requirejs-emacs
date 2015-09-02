@@ -1,4 +1,5 @@
-# requirejs [![melpa badge][melpa-badge]][melpa-link] [![melpa stable badge][melpa-stable-badge]][melpa-stable-link]
+# requirejs-emacs [![melpa badge][melpa-badge]][melpa-link]
+
 Uses js2-mode to make Emacs interact with your RequireJS project
 
 ## Features:
@@ -11,7 +12,7 @@ Uses js2-mode to make Emacs interact with your RequireJS project
 
 ## Installation
 
-`requirejs-emacs` is available on [MELPA](https://melpa.org) and [MELPA-STABLE](https://stable.melpa.org).
+`requirejs-emacs` is available on [MELPA](https://melpa.org).
 
 You can install `requirejs` with the following command.
 
