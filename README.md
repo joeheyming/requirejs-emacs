@@ -9,6 +9,9 @@ Uses js2-mode to make Emacs interact with your RequireJS project
 * Provides a way to automatically add a path to your define block
 * You can navigate to a file matching the variable under your cursor
 
+## Screenshot
+
+![requirejs-emacs](requirejs.gif)
 
 ## Installation
 
