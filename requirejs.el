@@ -321,24 +321,28 @@ returns a non-nil value.")
     (save-excursion
       (requirejs-goto-define)
       (requirejs-js2-goto-next-node)
-      (requirejs-js2-goto-nth-child 1)
-      (requirejs-js2-goto-first-child-node)
-
+      
+      (let ((node (requirejs-js2-goto-nth-child 1)))
+        (if (= (length (js2-node-child-list node)) 0)
+            (search-forward "(")
+          (requirejs-js2-goto-first-child-node))
+        )
       (requirejs-clear-list)
 
       ;; inject the function variable params
       (insert (mapconcat 'identity (mapcar 'requirejs-get-variable-name  final-list) ", "))
 
       (requirejs-goto-define)
-      (requirejs-js2-goto-first-child-node)
-      (let ((end))
+      (let (
+            (node (requirejs-js2-goto-first-child-node))
+            (end))
+        (if (not node) (search-forward "["))
         (requirejs-clear-list)
-        (insert "\n\n")
-        (backward-char 1)
-
+        (if node (progn (insert "\n\n") (backward-char 1)))
+        
         ;; inject the newline separated variables
         (insert (mapconcat 'identity (mapcar #'(lambda(a) (concat "'" a "'")) final-list) ",\n"))
-
+        
         ;; indent the define block
         (setq end  (+ 1 (point)))
         (requirejs-goto-define)
