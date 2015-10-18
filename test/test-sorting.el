@@ -2,22 +2,21 @@
 (require 'requirejs)
 (setq js2-global-externs '("define"))
 
-
-;; (ert-deftest requirejs--sort-empty ()
-;;   "Test sorting when the define block is empty"
-;;   (with-temp-buffer
-;;     (insert "define([], function() {
-;; });")
-;;     (js2-mode)
-;;     (requirejs-sort-require-paths)
-;;     (should (string= (buffer-substring (point-min) (point-max)) "define([], function() {
-;; });"))
-;;     (search-backward "]")
-;;     (insert "\n") ;; add newline in between []
-;;     (js2-parse)
-;;     (requirejs-sort-require-paths)
-;;     (should (string= (buffer-substring (point-min) (point-max)) "define([], function() {
-;; });"))))
+(ert-deftest requirejs--sort-empty ()
+  "Test sorting when the define block is empty"
+  (with-temp-buffer
+    (insert "define([], function() {
+});")
+    (js2-mode)
+    (requirejs-sort-require-paths)
+    (should (string= (buffer-substring (point-min) (point-max)) "define([], function() {
+});"))
+    (search-backward "]")
+    (insert "\n") ;; add newline in between []
+    (js2-parse)
+    (requirejs-sort-require-paths)
+    (should (string= (buffer-substring (point-min) (point-max)) "define([], function() {
+});"))))
 
 (ert-deftest requirejs--sort-updates-params ()
   "Test sorting when you add a quoted string to the list of defines.
