@@ -10,7 +10,12 @@ ELPA_DIR = \
 
 test: elpa
 	$(CASK) exec $(EMACS) -Q -batch $(LOADPATH) \
-		-l test/test-sorting.el \
+		$(patsubst %,-l %,$(wildcard test/test-*.el)) \
+		-f ert-run-tests-batch-and-exit
+
+test/test-%: elpa
+	$(CASK) exec $(EMACS) -Q -batch $(LOADPATH) \
+		-l $@ \
 		-f ert-run-tests-batch-and-exit
 
 elpa: $(ELPA_DIR)

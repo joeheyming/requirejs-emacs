@@ -1,7 +1,7 @@
 ;;; requirejs.el --- Requirejs import manipulation and source traversal.
 
 ;; Author: Joe Heyming <joeheyming@gmail.com>
-;; URL: https://github.com/syohex/requirejs-emacs
+;; URL: https://github.com/joeheyming/requirejs-emacs
 ;; Version: 1.1
 ;; Keywords: javascript, requirejs
 ;; Package-Requires: ((js2-mode "20150713")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
@@ -168,29 +168,59 @@ the function."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defvar requirejs-define-or-require "define" "`requirejs-define-or-require' Stores weather your project uses require([], function(){}) style imports or define([], function() {}).")
+(defun requirejs-get-first-define-node()
+  "Get the first define node, if any.  Returns the whole js2-EXPR_RESULT node."
+  (interactive)
+  (let* (
+         (root-node (js2-node-root (js2-node-at-point)))
+         )
+    (cl-first
+     (cl-remove-if-not
+      (lambda (child)
+        (progn
+          ;; (message "child: %s" (js2-node-string child))
+          (and
+           ;; node is an expression
+           (= (js2-node-type child) js2-EXPR_RESULT)
+           ;; expression is a function call
+           (= (js2-node-type (js2-expr-stmt-node-expr child)) js2-CALL)
+           ;; function call is 'define'
+           (string= (js2-node-string (js2-call-node-target (js2-expr-stmt-node-expr child))) "define")
+           )
+          ))
+      (js2-node-child-list root-node)
+      ))
+    ))
 
 (defun requirejs-goto-define()
   "Jump to the define at the beginning of the buffer"
   (interactive)
-  (let* ( (define-node (requirejs-js2-get-function-call-node requirejs-define-or-require (js2-node-root (js2-node-at-point)) ))
-          (define-call (js2-node-parent define-node)) )
-    (goto-char (+ (js2-node-abs-pos define-call) (js2-call-node-lp define-call) ))
-    (search-forward "[")
-    (backward-char 1)))
+  (let* ((define-node (requirejs-get-first-define-node))
+         (define-params)
+         (path-array-node))
+    (if define-node
+        (progn
+          (setq define-params (js2-call-node-args (js2-expr-stmt-node-expr define-node)))
+          (setq path-array-node  (cl-first define-params))
+          ;; (message "node %s" (js2-node-string define-node))
+          (goto-char (js2-node-abs-pos path-array-node)))
+      (message "define node not found")
+      )
+    )
+  )
+
+(defun requirejs-buffer-has-define ()
+  "Determine if this buffer has a define block in the root node."
+  (not (equal (requirejs-get-first-define-node) nil) )
+  )
 
 (defun requirejs-get-require-paths()
   "Gets all the require paths and returns them without quotes."
-  (interactive)
-  (save-excursion
-    (requirejs-goto-define)
-    (let ((node (requirejs-js2-goto-first-child-node))
-          (require-paths '()))
-      (while (not (null node))
-        (push (requirejs-js2-node-quoted-contents node) require-paths)
-        (setq node (js2-node-next-sibling node)))
-      require-paths
-      )))
+  (let* ((node (requirejs-get-first-define-node))
+         (define-params (js2-call-node-args (js2-expr-stmt-node-expr node)))
+         (path-array-node (cl-first define-params)))
+    (or (mapcar 'js2-string-node-value (js2-node-child-list path-array-node)) '())
+    ))
 
 (defun requirejs-clear-list()
   "Look at your parent node and clear out all child nodes"
@@ -199,6 +229,23 @@ the function."
   (mark-sexp)
   (kill-region (+ 1(region-beginning)) (- (region-end) 1) )
   (forward-char 1))
+
+(defun requirejs-clear-function-params (fn-node)
+  "Remove all function params under FN-NODE."
+  (let* ((fn-pos (js2-node-abs-pos fn-node))
+         (lp-pos (+ 1 (+ fn-pos (js2-function-node-lp fn-node)))))
+    (kill-region
+     lp-pos
+     (+ fn-pos (js2-function-node-rp fn-node)))
+    (goto-char lp-pos)))
+
+(defun requirejs-clear-array-node (array-node)
+  "Remove all items in ARRAY-NODE."
+  (let* ((array-pos (js2-node-abs-pos array-node)))
+    (kill-region
+     (+ 1 array-pos)
+     (- (js2-node-abs-end array-node) 1))
+    (goto-char (+ 1 array-pos))))
 
 ;; Define a structure for storing an alias
 (cl-defstruct requirejs-alias
@@ -300,7 +347,9 @@ returns a non-nil value.")
   (let ( (require-paths (requirejs-get-require-paths))
          (standard-paths '())
          (tail-paths '())
-         (final-list '()) )
+         (final-list '())
+         (final-params)
+         (cur-node) )
 
     (if other
         (push other require-paths))
@@ -320,58 +369,52 @@ returns a non-nil value.")
                   (sort tail-paths 'requirejs-alias-compare)))
     (save-excursion
       (requirejs-goto-define)
-      (requirejs-js2-goto-next-node)
-      
-      (let ((node (requirejs-js2-goto-nth-child 1)))
-        (if (= (length (js2-node-child-list node)) 0)
-            (search-forward "(")
-          (requirejs-js2-goto-first-child-node))
-        )
-      (requirejs-clear-list)
+      (setq cur-node (requirejs-js2-goto-next-node))
+      (requirejs-clear-function-params cur-node)
 
       ;; inject the function variable params
-      (insert (mapconcat 'identity (mapcar 'requirejs-get-variable-name  final-list) ", "))
-
-      (requirejs-goto-define)
-      (let (
-            (node (requirejs-js2-goto-first-child-node))
-            (end))
-        (if (not node) (search-forward "["))
-        (requirejs-clear-list)
-        (if node (progn (insert "\n\n") (backward-char 1)))
-        
-        ;; inject the newline separated variables
-        (insert (mapconcat 'identity (mapcar #'(lambda(a) (concat "'" a "'")) final-list) ",\n"))
-        
-        ;; indent the define block
-        (setq end  (+ 1 (point)))
-        (requirejs-goto-define)
-        (js2-indent-region (point) end)
-        )
+      (setq final-params (mapcar 'requirejs-get-variable-name  final-list))
+      (insert (mapconcat 'identity final-params ", "))
+      
+      (setq cur-node (cl-first (js2-call-node-args (js2-node-parent cur-node))))
+      (requirejs-clear-array-node cur-node)
+      
+      ;; inject the newline separated paths
+      (if (> (length final-list) 0)
+          (progn
+            (insert "\n")
+            (insert (mapconcat 'identity (mapcar #'(lambda(a) (concat "'" a "'")) final-list) ",\n"))
+            (insert "\n")
+            ))
+      
+      ;; indent the array node
+      (setq end  (+ 1 (point)))
+      (goto-char (js2-node-abs-pos cur-node))
+      (js2-indent-region (point) end)
 
       ;; eightify the list manually since the syntax tree spacing may be borked at this point.
       (requirejs-js2-goto-next-node)
+
       (let ((node (requirejs-js2-goto-first-child-node))
             (next-column-spot))
-        (while node
-          (setq next-column-spot (+ (current-column) (js2-node-len node)))
-          (if (> next-column-spot 80)
-              (progn
-                (search-forward-regexp "[ ,]")
-                (insert "\n")
-                (js2-indent-line)))
-
-          (setq node (requirejs-js2-goto-next-node))
-          )
-        )
-      )
+        (dolist (param final-params)
+          (progn
+            (forward-char (+ 2 (length param)))
+            (if (> (current-column) 80)
+                (progn
+                  (delete-backward-char 1)
+                  (insert "\n")
+                  (js2-indent-line)))
+            ))
+        ) ;; let
+      ) ;; save-excursion
     ))
 
 (defun requirejs-is-define-call (node)
   "Return true if the NODE is a CALL node and it equals 'define'."
   (and
    (= (js2-node-type node) js2-CALL)
-   (equal requirejs-define-or-require (buffer-substring (js2-node-abs-pos node) (+ 6 (js2-node-abs-pos node)) )) ))
+   (equal "define" (buffer-substring (js2-node-abs-pos node) (+ 6 (js2-node-abs-pos node)) )) ))
 
 (defun requirejs-jump-to()
   "Goes to the variable declaration of the node under the cursor.  If you are inside a define block's function parameters, `requirejs-jump-to' attempts to call `requirejs-jump-to-module' to go to the corresponding file."
@@ -420,7 +463,7 @@ returns a non-nil value.")
   (message (format "Finding variableName: '%s' ..." variableName))
   (requirejs-validate-project)
   (let* ((command (format "cd %s; find . -name \"%s.js\"" requirejs-require-base variableName))
-        (files (split-string (s-trim (shell-command-to-string command)) "\n")))
+         (files (split-string (s-trim (shell-command-to-string command)) "\n")))
     ;; (message (format "command = %s" command))
     ;; (message (format "files = %s %s" files (length files)))
     (cond ((equal (car files) "") (error (format "Can't find module: %s" variableName)))
@@ -503,8 +546,8 @@ Optional argument LINE-BREAK If true,
            (next-column-spot))
       (goto-char (js2-node-abs-end node))
       (kill-region (point) (progn
-			 (search-forward-regexp ")\\|]")
-			 (- (point) 1) ))
+                             (search-forward-regexp ")\\|]")
+                             (- (point) 1) ))
       ;; Remove whitespace around nodes
       (while (>= n 0)
         (goto-char (js2-node-abs-pos node))
