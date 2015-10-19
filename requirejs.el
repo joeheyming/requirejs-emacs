@@ -402,7 +402,7 @@ returns a non-nil value.")
             (forward-char (+ 2 (length param)))
             (if (> (current-column) 80)
                 (progn
-                  (delete-backward-char 1)
+                  (delete-char -1)
                   (insert "\n")
                   (js2-indent-line)))
             ))
