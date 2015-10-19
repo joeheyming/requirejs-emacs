@@ -388,9 +388,9 @@ returns a non-nil value.")
             ))
       
       ;; indent the array node
-      (setq end  (+ 1 (point)))
-      (goto-char (js2-node-abs-pos cur-node))
-      (js2-indent-region (point) end)
+      (let ((end (+ 1 (point))))
+        (goto-char (js2-node-abs-pos cur-node))
+        (js2-indent-region (point) end))
 
       ;; eightify the list manually since the syntax tree spacing may be borked at this point.
       (requirejs-js2-goto-next-node)
