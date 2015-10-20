@@ -80,3 +80,43 @@ It should add the parameter"
 ], function(a, b, c, parameter, z) {
 });"))
     ))
+
+(ert-deftest requirejs--sort-over-80-chars ()
+  "Test sorting when you have over 80 chars"
+  (with-temp-buffer
+    (insert "define(['abcdeabcdeabcdeabcde', 'fgjhijfgjhijfgjhijfgjhij', 'klmopklmopklmopklmop', 'qrstuqrstuqrstuqrstu'], function() {
+});")
+    (js2-mode)
+    (requirejs-sort-require-paths)
+    (should (string= (buffer-substring (point-min) (point-max)) "define([
+    'abcdeabcdeabcdeabcde',
+    'fgjhijfgjhijfgjhijfgjhij',
+    'klmopklmopklmopklmop',
+    'qrstuqrstuqrstuqrstu'
+], function(abcdeabcdeabcdeabcde, fgjhijfgjhijfgjhijfgjhij, klmopklmopklmopklmop,
+	    qrstuqrstuqrstuqrstu) {
+});"))
+    ))
+
+(ert-deftest requirejs--sort-over-80-chars-2-lines ()
+  "Test sorting when you have over 80 chars"
+  (with-temp-buffer
+    (insert "define(['abcdeabcdeabcdeabcde', 'fgjhijfgjhijfgjhijfgjhij', 'klmopklmopklmopklmop', 'qrstuqrstuqrstuqrstu', 'abcdeabcdeabcdeabcde1', 'fgjhijfgjhijfgjhijfgjhij2', 'klmopklmopklmopklmop3', 'qrstuqrstuqrstuqrstu4'], function() {
+});")
+    (js2-mode)
+    (requirejs-sort-require-paths)
+    (should (string= (buffer-substring (point-min) (point-max)) "define([
+    'abcdeabcdeabcdeabcde',
+    'abcdeabcdeabcdeabcde1',
+    'fgjhijfgjhijfgjhijfgjhij',
+    'fgjhijfgjhijfgjhijfgjhij2',
+    'klmopklmopklmopklmop',
+    'klmopklmopklmopklmop3',
+    'qrstuqrstuqrstuqrstu',
+    'qrstuqrstuqrstuqrstu4'
+], function(abcdeabcdeabcdeabcde, abcdeabcdeabcdeabcde1, fgjhijfgjhijfgjhijfgjhij,
+	    fgjhijfgjhijfgjhijfgjhij2, klmopklmopklmopklmop, klmopklmopklmopklmop3,
+	    qrstuqrstuqrstuqrstu, qrstuqrstuqrstuqrstu4) {
+});"))
+
+    ))

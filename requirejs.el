@@ -393,23 +393,41 @@ returns a non-nil value.")
         (js2-indent-region (point) end))
 
       ;; eightify the list manually since the syntax tree spacing may be borked at this point.
-      (requirejs-js2-goto-next-node)
-
-      (let ((node (requirejs-js2-goto-first-child-node))
-            (next-column-spot))
-        (dolist (param final-params)
-          (progn
-            (forward-char (+ 2 (length param)))
-            (if (> (current-column) 80)
-                (progn
-                  (delete-char -1)
-                  (insert "\n")
-                  (js2-indent-line)))
-            ))
-        ) ;; let
+      (save-excursion
+        (search-forward "{")
+        (save-restriction
+          (narrow-to-region (point-min) (point))
+          (js2-parse)
+          (requirejs-js2-eightify-define-params)
+          )
+        )
       ) ;; save-excursion
     ))
 
+(defvar requirejs-max-list-size 80
+  "Specifies how long a list is until we put it on the next line.  Default 80.")
+
+(defun requirejs-js2-eightify-define-params()
+  (requirejs-goto-define)
+  (let* ((fn-node (requirejs-js2-goto-next-node))
+         (children (js2-function-node-params fn-node)))
+    (if children
+        (goto-char (js2-node-abs-pos (car children))))
+    (dolist (node children)
+      (progn
+        (forward-char (+ 2 (js2-node-len node)))
+        (if (> (current-column) requirejs-max-list-size)
+            (progn
+              (delete-char -1)
+              (insert "\n")
+              (js2-indent-line)
+              )
+          )
+        )
+      )
+    ) ;; let
+  )
+  
 (defun requirejs-is-define-call (node)
   "Return true if the NODE is a CALL node and it equals 'define'."
   (and
@@ -566,7 +584,7 @@ Optional argument LINE-BREAK If true,
             (js2-indent-line) ))
       (while (< n node-length)
         (setq next-column-spot (current-column)) ;;(+ (current-column) (js2-node-len node)))
-        (if (> next-column-spot 80)
+        (if (> next-column-spot requirejs-max-list-size)
             (progn
               (delete-char -1) ;; remove the added space
               (insert "\n")
