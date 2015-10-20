@@ -1,6 +1,7 @@
 # requirejs.el [![MELPA](https://melpa.org/packages/requirejs-badge.svg)](https://melpa.org/#/requirejs) [![Build Status](https://secure.travis-ci.org/joeheyming/requirejs-emacs.png)](http://travis-ci.org/joeheyming/requirejs-emacs)
 
-Uses js2-mode to make Emacs interact with your RequireJS project
+Uses js2-mode to make Emacs interact with your RequireJS project.
+Provides requirejs-mode which is a minor mode for js2-mode.
 
 ## Features:
 * Allows you to effortlessly manage a define or require block
@@ -47,12 +48,15 @@ second argument is the parameter to put in the function declaration,
 the third argument is the path to the actual file (under requirejs-require-base)
 
 ## Key mappings
-I like to define these local keys when in js2-mode:
+I like to add requirejs-mode when in js2-mode:
 ```lisp
  (add-hook 'js2-mode-hook
            '(lambda ()
-              (local-set-key [(super a) ?s ?r ] 'requirejs-sort-require-paths)
-              (local-set-key [(super a) ?a ?r ] 'requirejs-add-to-define)
-              (local-set-key [(super a) ?r ?j ] 'requirejs-jump-to-module)
+              (requirejs-mode)
               ))
 ```
+
+This provides the following keys:
+C-c s r => requirejs-sort-require-paths
+C-c a r => requirejs-add-to-define
+C-c r j => requirejs-jump-to-module

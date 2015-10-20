@@ -583,6 +583,25 @@ Optional argument LINE-BREAK If true,
             (backward-char 1)
             (insert "\n"))) )))
 
+
+(defvar requirejs-mode-map
+  (make-sparse-keymap)
+  "Keymap for requirejs-mode")
+
+(define-key requirejs-mode-map
+  (kbd "C-c sr") 'requirejs-sort-require-paths)
+
+(define-key requirejs-mode-map
+  (kbd "C-c ar") 'requirejs-add-to-define)
+
+(define-key requirejs-mode-map
+  (kbd "C-c rj") 'requirejs-jump-to-module)
+
+(define-minor-mode requirejs-mode
+  "Minor mode for handling requirejs imports in a JavaScript file."
+  :lighter " RequireJS"
+  :keymap requirejs-mode-map)
+
 (provide 'requirejs)
 
 ;;; requirejs.el ends here
