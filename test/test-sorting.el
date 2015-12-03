@@ -120,3 +120,17 @@ It should add the parameter"
 });"))
 
     ))
+
+(ert-deftest requirejs--varnameWithDash ()
+  "Test sorting when your import has a dash '-'"
+  (with-temp-buffer
+    (insert "define(['my-library-is-cool'], function() {
+});")
+    (js2-mode)
+    (requirejs-sort-require-paths)
+    (let ((actual (buffer-substring (point-min) (point-max))))
+      (should (string= actual "define([
+    'my-library-is-cool'
+], function(my_library_is_cool) {
+});")))
+    ))

@@ -69,15 +69,6 @@ Argument FN A js2-node function that takes a js2-node and returns a js2-node."
         (goto-char (js2-node-abs-pos child-node)))
     child-node))
 
-(defun requirejs-js2-goto-first-child-node()
-  "Goes to the first child, returns that node, if any."
-  (interactive)
-  (requirejs-js2-goto-node 'js2-node-first-child))
-
-(defun requirejs-js2-goto-last-child-node()
-  "Goes to the first child, returns that node, if any."
-  (interactive)
-  (requirejs-js2-goto-node 'js2-node-last-child))
 
 (defun requirejs-js2-goto-parent-node()
   "Goes to your parent node, returns that node."
@@ -97,18 +88,6 @@ Argument FN A js2-node function that takes a js2-node and returns a js2-node."
   (interactive)
   (requirejs-js2-goto-node 'js2-node-next-sibling))
 
-(defun requirej-js2-goto-prev-node()
-  "Goes to the previous sibling, if any.  Returns the sibling"
-  (interactive)
-  (requirejs-js2-goto-node 'js2-node-prev-sibling))
-
-(defun requirejs-js2-goto-nth-child(n)
-  "Goes to the nth child, if any.  Returns the child"
-  (interactive (list (string-to-number (read-string "Goto child: "))))
-  (let* ((current (js2-node-at-point))
-         (parent (js2-node-parent current))
-         (child (nth n (js2-node-child-list parent))))
-    (if child (goto-char (js2-node-abs-pos child))) child))
 
 ;; The following functions were shamelessly stolen from https://github.com/ScottyB/ac-js2
 (defun requirejs-js2-root-or-node ()
@@ -136,21 +115,6 @@ the function."
      (lambda (node end-p)
        (when (and (not end-p)
                   (string= name (requirejs-js2-get-function-name node)))
-         (throw 'function-found node))
-       t))
-    nil))
-
-(defun requirejs-js2-get-function-call-node (name scope)
-  "Return node of function named NAME in SCOPE."
-  (catch 'function-found
-    (js2-visit-ast
-     scope
-     (lambda (node end-p)
-       (when (and (not end-p)
-                  (= (js2-node-type node) js2-NAME)
-                  (string= name (js2-name-node-name node))
-                  (= (js2-node-type (js2-node-parent node)) js2-CALL)
-                  )
          (throw 'function-found node))
        t))
     nil))
@@ -318,6 +282,8 @@ Override this if TextStr doesn't work for you.")
   (interactive)
   (let* ((basename (car (last (split-string path "/" )) ))
          (shim (gethash path requirejs-aliases))
+         ;; replace dashes with underscore
+         (basename (replace-regexp-in-string "-" "_" basename))
          (formatted (funcall requirejs-var-formatter path basename))
          )
     (cond
@@ -604,7 +570,7 @@ Optional argument LINE-BREAK If true,
 
 (defvar requirejs-mode-map
   (make-sparse-keymap)
-  "Keymap for requirejs-mode")
+  "Keymap for variable `requirejs-mode'.")
 
 (define-key requirejs-mode-map
   (kbd "C-c sr") 'requirejs-sort-require-paths)
@@ -615,6 +581,7 @@ Optional argument LINE-BREAK If true,
 (define-key requirejs-mode-map
   (kbd "C-c rj") 'requirejs-jump-to-module)
 
+;;;###autoload
 (define-minor-mode requirejs-mode
   "Minor mode for handling requirejs imports in a JavaScript file."
   :lighter " RequireJS"
