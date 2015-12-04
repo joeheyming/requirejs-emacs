@@ -596,6 +596,8 @@ Optional argument LINE-BREAK If true,
 
 ;;;###autoload
 (defun requirejs-snippets-initialize ()
+  "Add this directory with '/snippets' to the `yas-snippets-dir' list.
+Compile and load the new snippets directory."
   (let ((snip-dir (expand-file-name "snippets" requirejs-snippets-root)))
     (when (boundp 'yas-snippet-dirs)
       (add-to-list 'yas-snippet-dirs snip-dir t))
