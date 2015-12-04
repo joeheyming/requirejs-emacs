@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+#name : def
+# expand-env: ((yas-indent-line 'auto))
+# --
+define([], function() {
+'use strict';
+$0
+});

@@ -4,7 +4,7 @@
 ;; URL: https://github.com/joeheyming/requirejs-emacs
 ;; Version: 1.1
 ;; Keywords: javascript, requirejs
-;; Package-Requires: ((js2-mode "20150713")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5"))
+;; Package-Requires: ((js2-mode "20150713")(popup "0.5.3")(s "1.9.0")(cl-lib "0.5")(yasnippet "20151011.1823"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -47,17 +47,116 @@
 (require 'popup)
 (require 'cl-lib)
 (require 's)
+(require 'yasnippet)
+
+;; requirejs-mode customizations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+
+(defgroup requirejs-mode nil
+  "requirejs-mode customizations"
+  :group 'development)
+
+(defvar requirejs-var-formatter '(lambda (path basename) nil)
+  "Override `requirejs-var-formatter' to add variable formatting rules.
+If this returns nil, then we use the basename
+ of the path as the default variable name.
+If `requirejs-var-formatter' returns a string,
+ then we will use that string for the variable name.")
+
+(defvar requirejs-text-suffix "TextStr"
+  "Requirejs text! paths are constructed with this string.
+We take the basename of the path file and tack on `requirejs-text-suffix'.
+Override this if TextStr doesn't work for you.")
+
+(defvar requirejs-tail-path '(lambda (path) nil)
+  "Specify if a path belongs at the of the requirejs define block.
+Certain teams/companies have guidelines where they always
+ put text! paths at the end of the function declaration.
+In this case, you would (setq requirejs-tail-path 'your-team-requirements)
+`requirejs-tail-path' takes a path and if it should be put at the end,
+returns a non-nil value.")
+
+(defvar requirejs-max-list-size 80
+  "Specifies how long a list is until we put it on the next line.  Default 80.")
+
+(defvar requirejs-require-base nil
+  "`requirejs-require-base' is the base path for looking for javascript files.")
+
+(defvar requirejs-path-formatter '(lambda (a) a)
+  "`requirejs-path-formatter' takes a found javascript file and formats it so it can go in a define([...] block.")
+
+(defvar requirejs-popup-keymap
+  (let ((keymap (make-sparse-keymap)))
+    (set-keymap-parent keymap popup-menu-keymap)
+    (define-key keymap [return] 'popup-select )
+    (define-key keymap [tab] 'popup-select )
+    keymap)
+  "*A keymap for `requirejs-jump-to-module' of `requirejs'.")
+
+(defvar requirejs-mode-map
+  (make-sparse-keymap)
+  "Keymap for variable `requirejs-mode'.")
+
+(defconst requirejs-snippets-root
+  (file-name-directory (or load-file-name
+                           (buffer-file-name))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Define a structure for storing an alias
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
+
+(defvar requirejs-aliases (make-hash-table :test 'equal)
+  "`requirejs-aliases' is a table that stores user defined aliases.
+An alias is added with `requirejs-add-alias'")
+
+(defvar requirejs-alias-var-lookup (make-hash-table :test 'equal)
+  "`requirejs-alias-var-lookup' Defines a reverse lookup of variable name to requirejs alias.")
+
+(cl-defstruct requirejs-alias
+  "A rule for a special shim in your requirejs conf"
+  label ;; The lookup value of an alias
+  variableName ;; The desired variable name to place in a define function.
+  path) ;; The path that we will sort by.
+
+(defun requirejs-add-alias (label variableName path)
+  "Add a requirejs config shim to `requirejs-aliases'.
+
+Argument LABEL The label we are using to look up the alias.
+Argument VARIABLENAME The name of the variable
+ as it should appear in the define block.
+Argument PATH The exact path that is found under `requirejs-require-base'.
+
+Example 1:
+ If you want to expose that lookup: knockout, but name the variable ko:
+ (requirejs-add-alias \"knockout\" \"ko\" \"knockout\")
+ This says that when you sort require PATHs,
+  we will interpret knockout as the variable ko:
+ define(['knockout'], function(ko) { ... }
+ The third string is used to determine how to sort
+
+Example 2: if you include lodash, but you want to sort by 'Lodash', not '_':
+ (requirejs-add-alias \"_\", \"_\" \"lodash\")
+ This will make sure the define block looks like this:
+ define(['knockout', '_'], function(ko, _) { ... }  instead of this:
+ define(['_', 'knockout'], function(_, ko) { ... }  because K comes before L"
+  (interactive)
+  (let ((alias (make-requirejs-alias :label label :variableName variableName :path path)))
+    (puthash label alias requirejs-aliases)
+    (puthash variableName alias requirejs-alias-var-lookup)
+    ))
+
+(defun requirejs-alias-compare(a b)
+  "Compare paths ignore case"
+  (let* ((alias-a (gethash a requirejs-aliases))
+         (alias-b (gethash b requirejs-aliases))
+         (shim-a (if alias-a (requirejs-alias-path alias-a) a))
+         (shim-b (if alias-b (requirejs-alias-path alias-b) b)))
+    (string< shim-a shim-b)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; js2-mode utilities
 ;;  These utilities use the js2-mode abstract syntax tree to do useful operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
-
-(defun requirejs-js2-node-quoted-contents (node)
-  "Get the inner text of a quoted string.  e.g 'foo' -> yeilds foo.
-Argument NODE A js2-node."
-  (let ((node-pos (js2-node-abs-pos node)))
-    (buffer-substring-no-properties (+ 1 node-pos) (- (+ node-pos (js2-node-len node)) 1))))
 
 (defun requirejs-js2-goto-node (fn)
   "Go to a js2-node using the passed in function.
@@ -211,72 +310,9 @@ the function."
      (- (js2-node-abs-end array-node) 1))
     (goto-char (+ 1 array-pos))))
 
-;; Define a structure for storing an alias
-(cl-defstruct requirejs-alias
-  "A rule for a special shim in your requirejs conf"
-  label ;; The lookup value of an alias
-  variableName ;; The desired variable name to place in a define function.
-  path) ;; The path that we will sort by.
-
-
-(defvar requirejs-aliases (make-hash-table :test 'equal)
-  "`requirejs-aliases' is a table that stores user defined aliases.
-An alias is added with `requirejs-add-alias'")
-
-(defvar requirejs-alias-var-lookup (make-hash-table :test 'equal)
-  "`requirejs-alias-var-lookup' Defines a reverse lookup of variable name to requirejs alias.")
-
-(defun requirejs-add-alias (label variableName path)
-  "Add a requirejs config shim to `requirejs-aliases'.
-
-Argument LABEL The label we are using to look up the alias.
-Argument VARIABLENAME The name of the variable
- as it should appear in the define block.
-Argument PATH The exact path that is found under `requirejs-require-base'.
-
-Example 1:
- If you want to expose that lookup: knockout, but name the variable ko:
- (requirejs-add-alias \"knockout\" \"ko\" \"knockout\")
- This says that when you sort require PATHs,
-  we will interpret knockout as the variable ko:
- define(['knockout'], function(ko) { ... }
- The third string is used to determine how to sort
-
-Example 2: if you include lodash, but you want to sort by 'Lodash', not '_':
- (requirejs-add-alias \"_\", \"_\" \"lodash\")
- This will make sure the define block looks like this:
- define(['knockout', '_'], function(ko, _) { ... }  instead of this:
- define(['_', 'knockout'], function(_, ko) { ... }  because K comes before L"
-  (interactive)
-  (let ((alias (make-requirejs-alias :label label :variableName variableName :path path)))
-    (puthash label alias requirejs-aliases)
-    (puthash variableName alias requirejs-alias-var-lookup)
-    ))
-
 (defun requirejs-path-compare(a b)
   "Compare paths ignore case"
   (string< (downcase a) (downcase b)))
-
-(defun requirejs-alias-compare(a b)
-  "Compare paths ignore case"
-  (let* ((alias-a (gethash a requirejs-aliases))
-         (alias-b (gethash b requirejs-aliases))
-         (shim-a (if alias-a (requirejs-alias-path alias-a) a))
-         (shim-b (if alias-b (requirejs-alias-path alias-b) b)))
-    (string< shim-a shim-b)))
-
-
-(defvar requirejs-var-formatter '(lambda (path basename) nil)
-  "Override `requirejs-var-formatter' to add variable formatting rules.
-If this returns nil, then we use the basename
- of the path as the default variable name.
-If `requirejs-var-formatter' returns a string,
- then we will use that string for the variable name.")
-
-(defvar requirejs-text-suffix "TextStr"
-  "Requirejs text! paths are constructed with this string.
-We take the basename of the path file and tack on `requirejs-text-suffix'.
-Override this if TextStr doesn't work for you.")
 
 (defun requirejs-get-variable-name(path)
   (interactive)
@@ -298,14 +334,6 @@ Override this if TextStr doesn't work for you.")
      ;; default return the basename
      (t basename)
      )))
-
-(defvar requirejs-tail-path '(lambda (path) nil)
-  "Specify if a path belongs at the of the requirejs define block.
-Certain teams/companies have guidelines where they always
- put text! paths at the end of the function declaration.
-In this case, you would (setq requirejs-tail-path 'your-team-requirements)
-`requirejs-tail-path' takes a path and if it should be put at the end,
-returns a non-nil value.")
 
 (defun requirejs-sort-require-paths(&optional other)
   "Sorts the paths inside define, then injects variable names into the corresponding function declaration."
@@ -370,9 +398,6 @@ returns a non-nil value.")
       ) ;; save-excursion
     ))
 
-(defvar requirejs-max-list-size 80
-  "Specifies how long a list is until we put it on the next line.  Default 80.")
-
 (defun requirejs-js2-eightify-define-params()
   (requirejs-goto-define)
   (let* ((fn-node (requirejs-js2-goto-next-node))
@@ -416,20 +441,6 @@ returns a non-nil value.")
           
           ;; jump to the declaration
           (goto-char (js2-node-abs-pos declaration)) )) ))
-
-(defvar requirejs-require-base nil
-  "`requirejs-require-base' is the base path for looking for javascript files.")
-
-(defvar requirejs-path-formatter '(lambda (a) a)
-  "`requirejs-path-formatter' takes a found javascript file and formats it so it can go in a define([...] block.")
-
-(defvar requirejs-popup-keymap
-  (let ((keymap (make-sparse-keymap)))
-    (set-keymap-parent keymap popup-menu-keymap)
-    (define-key keymap [return] 'popup-select )
-    (define-key keymap [tab] 'popup-select )
-    keymap)
-  "*A keymap for `requirejs-jump-to-module' of `requirejs'.")
 
 (defun requirejs-validate-project ()
   "Determines if your requireJS project is valid to be able to run filesystem actions."
@@ -568,10 +579,6 @@ Optional argument LINE-BREAK If true,
             (insert "\n"))) )))
 
 
-(defvar requirejs-mode-map
-  (make-sparse-keymap)
-  "Keymap for variable `requirejs-mode'.")
-
 (define-key requirejs-mode-map
   (kbd "C-c sr") 'requirejs-sort-require-paths)
 
@@ -586,6 +593,18 @@ Optional argument LINE-BREAK If true,
   "Minor mode for handling requirejs imports in a JavaScript file."
   :lighter " RequireJS"
   :keymap requirejs-mode-map)
+
+;;;###autoload
+(defun requirejs-snippets-initialize ()
+  (let ((snip-dir (expand-file-name "snippets" requirejs-snippets-root)))
+    (when (boundp 'yas-snippet-dirs)
+      (add-to-list 'yas-snippet-dirs snip-dir t))
+    (yas-compile-directory snip-dir)
+    (yas-load-directory snip-dir)))
+
+;;;###autoload
+(eval-after-load 'yasnippet
+  '(requirejs-snippets-initialize))
 
 (provide 'requirejs)
 
