@@ -2,7 +2,7 @@
 #name : def
 # expand-env: ((yas-indent-line 'auto))
 # --
-define([], function() {
+`(if requirejs-define-header-hook (funcall requirejs-define-header-hook) )`define([], function() {
 'use strict';
 $0
 });

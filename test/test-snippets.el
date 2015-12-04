@@ -39,3 +39,21 @@
 });"))
     )
   )
+
+(ert-deftest requirejs--yas-define-block-with-header ()
+  "define snippet should expand with copyright header"
+  (with-temp-buffer
+    (js2-mode)
+    (requirejs-mode)
+      
+    (insert "def")
+    (let ((yas-fallback-behavior nil)
+          (requirejs-define-header-hook
+           '(lambda ()
+              (insert "// Copyright (c) 2015 ACME, Inc.  All rights reserved.\n"))))
+      (ert-simulate-command '(yas-expand)))
+    (should (string= (yas--buffer-contents) "// Copyright (c) 2015 ACME, Inc.  All rights reserved.
+define([], function() {
+    'use strict';
+    
+});"))))

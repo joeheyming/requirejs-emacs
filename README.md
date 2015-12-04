@@ -60,3 +60,9 @@ This provides the following keys:
 C-c s r => requirejs-sort-require-paths
 C-c a r => requirejs-add-to-define
 C-c r j => requirejs-jump-to-module
+
+## Snippets
+
+When in requirejs-mode, we will expand ```def``` as a  ```define([], function(){})``` block.
+
+You can customize this to add a header by overriding this variable with a function: ```requirejs-define-header-hook```

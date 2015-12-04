@@ -10,6 +10,7 @@ ELPA_DIR = \
 
 pre-test:
 	rm -f *.elc
+	find . | grep .yas-compiled-snippets.el | xargs rm -f;
 	$(CASK) exec $(EMACS) -batch -Q -L . -eval "(progn (setq byte-compile-error-on-warn t) (batch-byte-compile))" *.el
 
 test: elpa pre-test

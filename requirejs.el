@@ -40,6 +40,13 @@
 ;;              (local-set-key [(super a) ?a ?r ] 'requirejs-add-to-define)
 ;;              (local-set-key [(super a) ?r ?j ] 'requirejs-jump-to-module)
 ;;              ))
+;;
+
+;; (setq requirejs-define-header-hook
+;;       '(lambda ()
+;;          (insert
+;;           (format "// (c) Copyright %s ACME, Inc.  All rights reserved.\n"
+;;                   (format-time-string "%Y")))))
 
 ;;; Code:
 
@@ -49,6 +56,7 @@
 (require 's)
 (require 'yasnippet)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; requirejs-mode customizations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; 
 
@@ -100,6 +108,8 @@ returns a non-nil value.")
 (defconst requirejs-snippets-root
   (file-name-directory (or load-file-name
                            (buffer-file-name))))
+
+(defvar requirejs-define-header-hook nil "Function that inserts a header above a define block")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Define a structure for storing an alias
@@ -524,7 +534,8 @@ If more than one file matches your variable name,
   (clrhash requirejs-aliases)
   (clrhash requirejs-alias-var-lookup)
   (setq requirejs-var-formatter '(lambda (path basename) nil))
-  (setq requirejs-tail-path '(lambda (path) nil)))
+  (setq requirejs-tail-path '(lambda (path) nil))
+  (setq requirejs-define-header-hook nil))
 
 (defun requirejs-js2-eightify-list (&optional line-break)
   "Formats a list (parameters or an array) to be at most 80 characters wide.
